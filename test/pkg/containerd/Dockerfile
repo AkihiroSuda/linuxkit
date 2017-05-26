@@ -1,7 +1,10 @@
 # FIXME: maintainers please push and update linuxkit/alpine
-FROM linuxkit/alpine as alpine
+FROM linuxkit/alpine
+# btrfs-progfs is required for btrfs test (mkfs.btrfs)
+# util-linux is required for btrfs test (losetup)
 RUN \
   apk add \
+  btrfs-progs \
   btrfs-progs-dev \
   gcc \
   git \
@@ -9,7 +12,7 @@ RUN \
   libc-dev \
   linux-headers \
   make \
-  && true
+  util-linux
 ENV GOPATH=/root/go
 RUN mkdir -p $GOPATH/src/github.com/containerd && \
   cd $GOPATH/src/github.com/containerd && \
@@ -17,13 +20,8 @@ RUN mkdir -p $GOPATH/src/github.com/containerd && \
 WORKDIR $GOPATH/src/github.com/containerd/containerd
 # CONTAINERD_COMMIT is defined in linuxkit/alpine
 RUN git checkout $CONTAINERD_COMMIT
-RUN make binaries EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS="-extldflags \\\"-fno-PIC -static\\\""
-RUN cp bin/containerd bin/ctr bin/containerd-shim bin/dist /usr/bin/
-WORKDIR /
-COPY . .
 
-FROM scratch
-ENTRYPOINT []
-WORKDIR /
-COPY --from=alpine /usr/bin/containerd /usr/bin/ctr /usr/bin/dist /usr/bin/containerd-shim /usr/bin/
-COPY --from=alpine /etc/containerd/config.toml /etc/containerd/
+# unset -race (does not work on alpine; see golang/go#14481)
+ENV TESTFLAGS=-tags=no_btrfs
+ENTRYPOINT ["make", "root-test"]
+LABEL org.mobyproject.config='{"net": "host", "capabilities": ["all"], "tmpfs": ["/tmp:exec"], "binds": ["/dev:/dev"]}'
