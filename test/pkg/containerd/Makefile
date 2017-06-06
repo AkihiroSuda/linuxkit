@@ -1,29 +1,15 @@
 .PHONY: tag push
-
-BASE=golang:1.8
-IMAGE=test-containerd
-
 default: push
 
-hash: Dockerfile
-	DOCKER_CONTENT_TRUST=1 docker pull $(BASE)
-	tar cf - $^ | docker build --no-cache -t $(IMAGE):build -
-	docker run --rm --entrypoint=/bin/sh $(IMAGE):build -c "cat $^ /lib/apk/db/installed | sha1sum" | sed 's/ .*//' > hash
+ORG?=linuxkit
+IMAGE=test-containerd
+DEPS=Dockerfile Makefile
 
-push: hash
-	docker pull linuxkit/$(IMAGE):$(shell cat hash) || \
-		(docker tag $(IMAGE):build linuxkit/$(IMAGE):$(shell cat hash) && \
-		 docker push linuxkit/$(IMAGE):$(shell cat hash))
-	docker rmi $(IMAGE):build
-	rm -f hash
+HASH?=$(shell git ls-tree HEAD -- ../$(notdir $(CURDIR)) | awk '{print $$3}')
 
-tag: hash
-	docker pull linuxkit/$(IMAGE):$(shell cat hash) || \
-		docker tag $(IMAGE):build linuxkit/$(IMAGE):$(shell cat hash)
-	docker rmi $(IMAGE):build
-	rm -f hash
+tag: $(DEPS)
+	docker build --no-cache -t $(ORG)/$(IMAGE):$(HASH) .
 
-clean:
-	rm -f hash
-
-.DELETE_ON_ERROR:
+push: tag
+	DOCKER_CONTENT_TRUST=1 docker pull $(ORG)/$(IMAGE):$(HASH) || \
+	DOCKER_CONTENT_TRUST=1 docker push $(ORG)/$(IMAGE):$(HASH)

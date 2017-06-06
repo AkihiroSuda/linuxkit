@@ -1,4 +1,5 @@
-FROM linuxkit/alpine:630ee558e4869672fae230c78364e367b8ea67a9 as alpine
+# FIXME: maintainers please push and update linuxkit/alpine
+FROM linuxkit/alpine as alpine
 RUN \
   apk add \
   btrfs-progs-dev \
@@ -10,11 +11,11 @@ RUN \
   make \
   && true
 ENV GOPATH=/root/go
-ENV CONTAINERD_COMMIT=7fc91b05917e93d474fab9465547d44eacd10ce3
 RUN mkdir -p $GOPATH/src/github.com/containerd && \
   cd $GOPATH/src/github.com/containerd && \
   git clone https://github.com/containerd/containerd.git
 WORKDIR $GOPATH/src/github.com/containerd/containerd
+# CONTAINERD_COMMIT is defined in linuxkit/alpine
 RUN git checkout $CONTAINERD_COMMIT
 RUN make binaries EXTRA_FLAGS="-buildmode pie" EXTRA_LDFLAGS="-extldflags \\\"-fno-PIC -static\\\""
 RUN cp bin/containerd bin/ctr bin/containerd-shim bin/dist /usr/bin/
